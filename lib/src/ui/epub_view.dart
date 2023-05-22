@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:epub_view/src/data/epub_cfi_reader.dart';
@@ -7,8 +6,10 @@ import 'package:epub_view/src/data/epub_parser.dart';
 import 'package:epub_view/src/data/models/chapter.dart';
 import 'package:epub_view/src/data/models/chapter_view_value.dart';
 import 'package:epub_view/src/data/models/paragraph.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 export 'package:epubx/epubx.dart' hide Image;
@@ -327,41 +328,106 @@ class _EpubViewState extends State<EpubView> {
     return Column(
       children: <Widget>[
         if (chapterIndex >= 0 && paragraphIndex == 0) builders.chapterDividerBuilder(chapters[chapterIndex]),
-        Html(
-          data: paragraphs[index].element.outerHtml,
-          onLinkTap: (href, attributes, element) => onExternalLinkPressed(href!),
-          style: {
-            'html': Style(
-              padding: options.paragraphPadding as EdgeInsets?,
-            ).merge(Style.fromTextStyle(options.textStyle)),
+        // Html(
+        //   data: paragraphs[index].element.outerHtml,
+        //   onLinkTap: (href, attributes, element) => onExternalLinkPressed(href!),
+        //   style: {
+        //     'html': Style(
+        //       padding: options.paragraphPadding as EdgeInsets?,
+        //     ).merge(Style.fromTextStyle(options.textStyle)),
+        //   },
+        //   extensions: [
+        //     TagExtension(
+        //         tagsToExtend: {"tex"},
+        //         builder: (extensionContext) {
+        //           final url = extensionContext.element!.attributes['src']!.replaceAll('../', '');
+        //           return Image(
+        //             image: MemoryImage(
+        //               Uint8List.fromList(
+        //                 document.Content!.Images![url]!.Content!,
+        //               ),
+        //             ),
+        //           );
+        //         }),
+        //   ],
+        //   // customRenders: {
+        //   //   tagMatcher('img'): CustomRender.widget(widget: (context, buildChildren) {
+        //   //     final url = context.tree.element!.attributes['src']!.replaceAll('../', '');
+        //   //     return Image(
+        //   //       image: MemoryImage(
+        //   //         Uint8List.fromList(
+        //   //           document.Content!.Images![url]!.Content!,
+        //   //         ),
+        //   //       ),
+        //   //     );
+        //   //   }),
+        //   // },
+        // ),
+
+        GestureDetector(
+          onPanCancel: () {
+            Future.delayed(const Duration(milliseconds: 700), () async {
+              // final selectedText = await _webViewController.getSelectedText();
+              // controller.updateSelectedText(text: selectedText ?? '');
+              // controller.updateShowToolbar(show: (selectedText ?? '').isNotEmpty);
+            });
           },
-          extensions: [
-            TagExtension(
-                tagsToExtend: {"tex"},
-                builder: (extensionContext) {
-                  final url = extensionContext.element!.attributes['src']!.replaceAll('../', '');
-                  return Image(
-                    image: MemoryImage(
-                      Uint8List.fromList(
-                        document.Content!.Images![url]!.Content!,
-                      ),
-                    ),
-                  );
-                }),
-          ],
-          // customRenders: {
-          //   tagMatcher('img'): CustomRender.widget(widget: (context, buildChildren) {
-          //     final url = context.tree.element!.attributes['src']!.replaceAll('../', '');
-          //     return Image(
-          //       image: MemoryImage(
-          //         Uint8List.fromList(
-          //           document.Content!.Images![url]!.Content!,
-          //         ),
-          //       ),
-          //     );
-          //   }),
-          // },
-        ),
+          child: InAppWebView(
+            onConsoleMessage: (controller, consoleMessage) {
+              debugPrint('abc!!! => $consoleMessage');
+            },
+            onOverScrolled: (controller, xx, yy, clampedX, clampedY) async {
+              final height = await controller.getContentHeight();
+              debugPrint('clamped y => $clampedY $yy $height');
+            },
+            // contextMenu: contextMenu,
+            onScrollChanged: (controller, xx, yy) {
+              //NOTE - x -> horizontal, y -> vertical
+              debugPrint('clamped =? $yy');
+              // if (xx != 0 || yy != 0) {
+              //   Future.delayed(const Duration(milliseconds: 300), () {
+              //     x = xx;
+              //     y = yy;
+
+              //     setState(() {});
+              //   });
+              // }
+            },
+            initialData: InAppWebViewInitialData(data: paragraphs[index].element.outerHtml),
+            gestureRecognizers: {
+              Factory<VerticalDragGestureRecognizer>(() => VerticalDragGestureRecognizer()),
+              Factory<HorizontalDragGestureRecognizer>(() => HorizontalDragGestureRecognizer()),
+              Factory<LongPressGestureRecognizer>(() => LongPressGestureRecognizer()),
+            },
+            initialOptions: InAppWebViewGroupOptions(
+              android: AndroidInAppWebViewOptions(
+                useHybridComposition: true,
+              ),
+              ios: IOSInAppWebViewOptions(
+                allowsLinkPreview: false,
+              ),
+              crossPlatform: InAppWebViewOptions(
+                supportZoom: false,
+                minimumFontSize: 25,
+                javaScriptEnabled: true,
+              ),
+            ),
+            onWebViewCreated: (InAppWebViewController ctrl) async {
+              // _webViewController = ctrl;
+
+              // _loadFirst();
+            },
+            onLoadStop: (controller, url) {
+              // controller
+              //     .evaluateJavascript(source: '''(() => { return document.documentElement.scrollHeight;})()''').then((value) async {
+              //   if (value == null || value == '') {
+              //     return;
+              //   }
+              //   setState(() {});
+              // });
+            },
+          ),
+        )
       ],
     );
   }
